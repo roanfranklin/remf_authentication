@@ -12,6 +12,7 @@ import sys
 import os
 import pyotp
 import pyperclip as pc
+import qrcode
 
 DIR_APP = '{0}'.format(os.path.dirname(os.path.realpath(__file__)))
 
@@ -86,14 +87,6 @@ class frmMain(QtWidgets.QMainWindow):
 
                 ICON_RPC = icon_none(DIR_APP)
 
-                URI_TOTP = pyotp.totp.TOTP(row['secret']).provisioning_uri(name=row['account'], issuer_name=row['issuer'])
-                TOTP = pyotp.parse_uri(URI_TOTP)
-
-                btnUpdate = QtWidgets.QPushButton('Update', self)
-                btnUpdate.clicked.connect(self.__update)
-                #btn.setIcon(icon_up(DIR_APP))
-                #btn.setToolTip("Up item selected")
-
                 btnCopy = QtWidgets.QPushButton('Copy', self)
                 btnCopy.clicked.connect(self.__copy)
                 #btn.setIcon(icon_up(DIR_APP))
@@ -101,11 +94,11 @@ class frmMain(QtWidgets.QMainWindow):
 
                 self.twSaved.setItem(inx, 0, QtWidgets.QTableWidgetItem('{0}'.format(row['id'])))
                 self.twSaved.setItem(inx, 1, QtWidgets.QTableWidgetItem('{0}'.format(row['myorder'])))
-                self.twSaved.setCellWidget(inx, 2, btnUpdate)
-                self.twSaved.setCellWidget(inx, 3, btnCopy)
-                self.twSaved.setItem(inx, 4, QtWidgets.QTableWidgetItem(TOTP.now()))
-                self.twSaved.setItem(inx, 5, QtWidgets.QTableWidgetItem('{0}'.format(row['issuer'])))
-                self.twSaved.setItem(inx, 6, QtWidgets.QTableWidgetItem('{0}'.format(row['account'])))
+                self.twSaved.setCellWidget(inx, 2, btnCopy)
+
+                self.twSaved.setItem(inx, 3, QtWidgets.QTableWidgetItem(''))
+                self.twSaved.setItem(inx, 4, QtWidgets.QTableWidgetItem('{0}'.format(row['issuer'])))
+                self.twSaved.setItem(inx, 5, QtWidgets.QTableWidgetItem('{0}'.format(row['account'])))
 
                 self.twSaved.selectRow(0)
 
@@ -115,8 +108,7 @@ class frmMain(QtWidgets.QMainWindow):
                 hSaved.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
                 hSaved.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeToContents)
                 hSaved.setSectionResizeMode(4, QtWidgets.QHeaderView.ResizeToContents)
-                hSaved.setSectionResizeMode(5, QtWidgets.QHeaderView.ResizeToContents)
-                hSaved.setSectionResizeMode(6, QtWidgets.QHeaderView.Stretch)
+                hSaved.setSectionResizeMode(5, QtWidgets.QHeaderView.Stretch)
         except:
             pass
 
@@ -138,11 +130,13 @@ class frmMain(QtWidgets.QMainWindow):
         self.pbTimeOut = self.findChild(QtWidgets.QProgressBar, 'pbTimeOut')
         self.pbTimeOut.setMinimum(0)
         self.pbTimeOut.setMaximum(30)
+        self.pbTimeOut.setValue(30)
 
-        self.step = 0
+        self.step = 30
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_func)
         self.timer.start(1000)
+        self.__update()
 
         self.btnDelete = self.findChild(QtWidgets.QToolButton, 'btnDelete')
         self.btnDelete.clicked.connect(self.btnDeleteClicked)
@@ -227,13 +221,6 @@ class frmMain(QtWidgets.QMainWindow):
             
             self.twSaved.insertRow(inx)
 
-            URI_TOTP = pyotp.totp.TOTP(RPC_DATA['secret']).provisioning_uri(name=RPC_DATA['account'], issuer_name=RPC_DATA['issuer'])
-            TOTP = pyotp.parse_uri(URI_TOTP)
-
-            btnUpdate = QtWidgets.QPushButton('Update', self)
-            btnUpdate.clicked.connect(self.__update)
-            #btn.setIcon(icon_up(DIR_APP))
-            #btn.setToolTip("Up item selected")
 
             btnCopy = QtWidgets.QPushButton('Copy', self)
             btnCopy.clicked.connect(self.__copy)
@@ -242,11 +229,10 @@ class frmMain(QtWidgets.QMainWindow):
 
             self.twSaved.setItem(inx, 0, QtWidgets.QTableWidgetItem('{0}'.format(row['id'])))
             self.twSaved.setItem(inx, 1, QtWidgets.QTableWidgetItem('{0}'.format(row['myorder'])))
-            self.twSaved.setCellWidget(inx, 2, btnUpdate)
-            self.twSaved.setCellWidget(inx, 3, btnCopy)
-            self.twSaved.setItem(inx, 4, QtWidgets.QTableWidgetItem(TOTP.now()))
-            self.twSaved.setItem(inx, 5, QtWidgets.QTableWidgetItem('{0}'.format(RPC_DATA['issuer'])))
-            self.twSaved.setItem(inx, 6, QtWidgets.QTableWidgetItem('{0}'.format(RPC_DATA['account'])))
+            self.twSaved.setCellWidget(inx, 2, btnCopy)
+            self.twSaved.setItem(inx, 3, QtWidgets.QTableWidgetItem(''))
+            self.twSaved.setItem(inx, 4, QtWidgets.QTableWidgetItem('{0}'.format(RPC_DATA['issuer'])))
+            self.twSaved.setItem(inx, 5, QtWidgets.QTableWidgetItem('{0}'.format(RPC_DATA['account'])))
 
             self.twSaved.selectRow(inx)
 
@@ -256,69 +242,54 @@ class frmMain(QtWidgets.QMainWindow):
             hSaved.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
             hSaved.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeToContents)
             hSaved.setSectionResizeMode(4, QtWidgets.QHeaderView.ResizeToContents)
-            hSaved.setSectionResizeMode(5, QtWidgets.QHeaderView.ResizeToContents)
-            hSaved.setSectionResizeMode(6, QtWidgets.QHeaderView.Stretch)
+            hSaved.setSectionResizeMode(5, QtWidgets.QHeaderView.Stretch)
+
+            self.__update()
 
     def update_func(self):
-        self.step += 1
+        self.step -= 1
         self.pbTimeOut.setValue(self.step)
-        if self.step >= 30:
-            self.pbTimeOut.setValue(0)
-            self.step = 0
+        if self.step <= 0:
+            self.__update()
+            self.pbTimeOut.setValue(30)
+            self.step = 30
 
     def __copy(self):
-        index = (self.twSaved.selectionModel().currentIndex())
+        index = self.twSaved.selectionModel().currentIndex()
+        vkey = index.sibling(index.row(),3).data()
+        pc.copy(vkey)        
         value = index.sibling(index.row(),0).data()
         row = db_selectoneRPC(DIR_APP, value)
-        URI_TOTP = pyotp.totp.TOTP(row['secret']).provisioning_uri(name=row['account'], issuer_name=row['issuer'])
-        TOTP = pyotp.parse_uri(URI_TOTP)
-        pc.copy(TOTP.now())
-        
+        try:
+            URI_TOTP = pyotp.totp.TOTP(row['secret']).provisioning_uri(name=row['account'], issuer_name=row['issuer'])
+            img = qrcode.make(URI_TOTP)
+            type(img)
+            img.save('{0}/data/qrcode.png'.format(DIR_APP))
+        except:
+            print("Error")        
     
     def __update(self):
-        index = (self.twSaved.selectionModel().currentIndex())
-        value = index.sibling(index.row(),0).data()
-        
-        row = db_selectoneRPC(DIR_APP, value)
-        inx = self.twSaved.currentRow()
+        maxRow = maxCol = -1
+        for inx in range(self.twSaved.rowCount()):
+            value = self.twSaved.item(inx,0).text()
+            row = db_selectoneRPC(DIR_APP, value)
 
-        __DATA_ID = '{0}'.format(row['id'])
-        __DATA_01 = '{0}'.format(row['myorder'])
-        
-        btnUpdate = QtWidgets.QPushButton('Update', self)
-        btnUpdate.clicked.connect(self.__update)
-        #btn.setIcon(icon_up(DIR_APP))
-        #btn.setToolTip("Up item selected")
+            try:
+                URI_TOTP = pyotp.totp.TOTP(row['secret']).provisioning_uri(name=row['account'], issuer_name=row['issuer'])
+                __DATA = pyotp.parse_uri(URI_TOTP)
+                __DATA_03 = __DATA.now()
+            except:
+                __DATA_03 = 'ERROR'
 
-        btnCopy = QtWidgets.QPushButton('Copy', self)
-        btnCopy.clicked.connect(self.__copy)
-        #btn.setIcon(icon_up(DIR_APP))
-        #btn.setToolTip("Up item selected")
+            self.twSaved.setItem(inx, 3, QtWidgets.QTableWidgetItem(__DATA_03))
 
-        URI_TOTP = pyotp.totp.TOTP(row['secret']).provisioning_uri(name=row['account'], issuer_name=row['issuer'])
-
-        __DATA_03 = pyotp.parse_uri(URI_TOTP)
-        __DATA_04 = '{0}'.format(row['issuer'])
-        __DATA_05 = '{0}'.format(row['account'])
-
-        self.twSaved.setItem(inx, 0, QtWidgets.QTableWidgetItem(__DATA_ID))
-        self.twSaved.setItem(inx, 1, QtWidgets.QTableWidgetItem(__DATA_01))
-        self.twSaved.setCellWidget(inx, 2, btnUpdate)
-        self.twSaved.setCellWidget(inx, 3, btnCopy)
-        self.twSaved.setItem(inx, 4, QtWidgets.QTableWidgetItem(__DATA_03.now()))
-        self.twSaved.setItem(inx, 5, QtWidgets.QTableWidgetItem(__DATA_04))
-        self.twSaved.setItem(inx, 6, QtWidgets.QTableWidgetItem(__DATA_05))
-
-        self.twSaved.selectRow(inx)   
-
-        hSaved = self.twSaved.horizontalHeader()
-        hSaved.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
-        hSaved.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
-        hSaved.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
-        hSaved.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeToContents)
-        hSaved.setSectionResizeMode(4, QtWidgets.QHeaderView.ResizeToContents)
-        hSaved.setSectionResizeMode(5, QtWidgets.QHeaderView.ResizeToContents)
-        hSaved.setSectionResizeMode(6, QtWidgets.QHeaderView.Stretch)
+            hSaved = self.twSaved.horizontalHeader()
+            hSaved.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
+            hSaved.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
+            hSaved.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
+            hSaved.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeToContents)
+            hSaved.setSectionResizeMode(4, QtWidgets.QHeaderView.ResizeToContents)
+            hSaved.setSectionResizeMode(5, QtWidgets.QHeaderView.Stretch)
 
 
     def btnDeleteClicked(self):
