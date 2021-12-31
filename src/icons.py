@@ -38,6 +38,9 @@ def icon_up(DIR_APP):
 def icon_down(DIR_APP):
     return QtGui.QIcon('{0}/icons/down.svg'.format(DIR_APP))
 
+def icon_cogs(DIR_APP):
+    return QtGui.QIcon('{0}/icons/cogs.svg'.format(DIR_APP))
+
 def icon_update(DIR_APP):
     return QtGui.QIcon('{0}/icons/refresh.svg'.format(DIR_APP))
 
