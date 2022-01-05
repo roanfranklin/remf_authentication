@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QToolTip, QPushButton, QMess
                             QDesktopWidget, QInputDialog, QTableWidgetItem, QFileDialog,
                             QSystemTrayIcon, QAction, QStyle, QMenu, qApp,
                             QLineEdit)
-from PyQt5.QtCore import (Qt, QUrl, QSize, QFile, QDir, QTimer)
+from PyQt5.QtCore import (Qt, QUrl, QSize, QFile, QDir, QTimer, QStandardPaths)
 from PyQt5.QtGui import (QPixmap, QIcon, QFont, QPalette, QColor)
 
 import sys
@@ -15,13 +15,18 @@ import pyperclip as pc
 import qrcode
 import datetime as dt
 
-
 DIR_APP = '{0}'.format(os.path.dirname(os.path.realpath(__file__)))
+DIR_CFG = '{0}/remf_auth/'.format(QStandardPaths.writableLocation(QStandardPaths.ConfigLocation))
+# APP_DATA = {'file': '{0}/data/database.sqlite3'.format(DIR_APP), 'secret': ''}
+APP_DATA = {'file': '', 'secret': ''}
 
 from src.database import *
 from src.git import *
 from src.icons import *
-from src.new import *
+from src.newaccount import *
+from src.newuri import *
+from src.openfile import *
+from src.qrcode import *
 
 APP_TITLE = 'REMF 2FA'
 APP_TITLE_COMPLETE = 'REMF 2 Factor Authentication'
@@ -43,10 +48,12 @@ class frmMain(QtWidgets.QMainWindow):
         super(frmMain, self).__init__()
         uic.loadUi('{0}/ui/frmMain.ui'.format(DIR_APP), self)
 
-        initial_sqlite(DIR_APP)
+        #initial_sqlite(APP_DATA)
 
         self.CONNECTED = False
         self.CONNECTED_index = -1
+
+        self.view_secrets = False
 
         self.tray_icon = QSystemTrayIcon(self)
         self.tray_icon.setIcon(icon_app(DIR_APP))
@@ -80,7 +87,7 @@ class frmMain(QtWidgets.QMainWindow):
 
         self.twSaved = self.findChild(QtWidgets.QTableWidget, 'twSaved')
         self.twSaved.itemSelectionChanged.connect(self.twSavedSelectedClick)
-        self.twSaved.itemDoubleClicked.connect(self.__copy)
+        self.twSaved.itemDoubleClicked.connect(self.btnCopyClicked)
         self.twSaved.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
         self.twSaved.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.twSaved.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
@@ -89,43 +96,25 @@ class frmMain(QtWidgets.QMainWindow):
         self.twSaved.setIconSize(QSize(44,44))
         self.twSaved.verticalHeader().setDefaultSectionSize(48)
 
-        try:
-            rows = sqlite_query(DIR_APP, 'SELECT * FROM auth ORDER BY myorder ASC')
-            self.twSaved.clearContents()
-            if not debug:
-                self.twSaved.setColumnHidden(0, True)
-                self.twSaved.setColumnHidden(1, True)
-                self.twSaved.setColumnHidden(2, True)
-            for row in rows:
-                inx = rows.index(row)
-                self.twSaved.insertRow(inx)
-
-                ICON_RPC = icon_none(DIR_APP)
-
-                self.twSaved.setItem(inx, 0, QtWidgets.QTableWidgetItem('{0}'.format(row['id'])))
-                self.twSaved.setItem(inx, 1, QtWidgets.QTableWidgetItem('{0}'.format(row['myorder'])))
-                #self.twSaved.setCellWidget(inx, 2, self.btnCopy())
-                self.twSaved.setItem(inx, 3, QtWidgets.QTableWidgetItem(''))
-                self.twSaved.setItem(inx, 4, QtWidgets.QTableWidgetItem('{0}'.format(row['issuer'])))
-                self.twSaved.setItem(inx, 5, QtWidgets.QTableWidgetItem('{0}'.format(row['account'])))
-
-                self.twSaved.selectRow(0)
-
-                hSaved = self.twSaved.horizontalHeader()
-                hSaved.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
-                hSaved.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
-                hSaved.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
-                hSaved.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeToContents)
-                hSaved.setSectionResizeMode(4, QtWidgets.QHeaderView.ResizeToContents)
-                hSaved.setSectionResizeMode(5, QtWidgets.QHeaderView.Stretch)
-        except:
-            pass
+        # self.twSaved.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        # self.twSaved.customContextMenuRequested.connect(self.twSavedPopupMenu)
+        # self.twSaved.viewport().installEventFilter(self)
+        
+        self.btnOpen = self.findChild(QtWidgets.QToolButton, 'btnOpen')
+        self.btnOpen.clicked.connect(self.btnOpenClicked)
+        self.btnOpen.setIcon(icon_open(DIR_APP))
+        self.btnOpen.setToolTip("Open file DB-2FA")
 
         self.btnNew = self.findChild(QtWidgets.QToolButton, 'btnNew')
         self.btnNew.setMenu(popup_menu_add)
         self.btnNew.setPopupMode(QtWidgets.QToolButton.InstantPopup)
         self.btnNew.setIcon(icon_plus(DIR_APP))
         self.btnNew.setToolTip("New register 2FA")
+
+        self.btnViewSecret = self.findChild(QtWidgets.QToolButton, 'btnViewSecret')
+        self.btnViewSecret.clicked.connect(self.btnViewSecretClicked) 
+        self.btnViewSecret.setIcon(icon_eye_slash(DIR_APP))
+        self.btnViewSecret.setToolTip("View Secrets 2FA")
 
         self.btnUp = self.findChild(QtWidgets.QToolButton, 'btnUp')
         self.btnUp.clicked.connect(self.btnUpClicked)
@@ -155,8 +144,16 @@ class frmMain(QtWidgets.QMainWindow):
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_func)
-        self.timer.start(1000)
-        self.__update()
+
+        self.btnCopy = self.findChild(QtWidgets.QToolButton, 'btnCopy')
+        self.btnCopy.clicked.connect(self.btnCopyClicked)
+        self.btnCopy.setIcon(icon_copy(DIR_APP))
+        self.btnCopy.setToolTip("Copy Key")
+
+        self.btnQRCode = self.findChild(QtWidgets.QToolButton, 'btnQRCode')
+        self.btnQRCode.clicked.connect(self.btnQRCodeClicked)
+        self.btnQRCode.setIcon(icon_qrcode(DIR_APP))
+        self.btnQRCode.setToolTip("View QRCode")
 
         self.btnDelete = self.findChild(QtWidgets.QToolButton, 'btnDelete')
         self.btnDelete.clicked.connect(self.btnDeleteClicked)
@@ -179,6 +176,13 @@ class frmMain(QtWidgets.QMainWindow):
         self.btnClose.setIcon(icon_quit(DIR_APP))
         self.btnClose.setToolTip("Hide/Exit")
 
+        self.btnNew.setEnabled(False)
+        self.btnCopy.setEnabled(False)
+        self.btnQRCode.setEnabled(False)
+        self.btnDelete.setEnabled(False)
+        self.btnUp.setEnabled(False)
+        self.btnDown.setEnabled(False)
+
         width = 661
         height = 504
 
@@ -190,8 +194,8 @@ class frmMain(QtWidgets.QMainWindow):
 
         self.center()
         self.setWindowFlag(QtCore.Qt.WindowMinMaxButtonsHint, False)
-        #self.__app_hide()
-        self.show()
+        self.__app_hide()
+        self.btnOpenClicked()      
 
     def closeEvent(self, event):
         if status_quit == False:
@@ -230,9 +234,74 @@ class frmMain(QtWidgets.QMainWindow):
         index=(self.twSaved.selectionModel().currentIndex())
         value=index.sibling(index.row(),0).data()
 
+    def btnOpenClicked(self):
+        result = frmOpenFile(self, DIR_APP, '{0} ( {1} )'.format(APP_TITLE, APP_VERSION))
+        if result.exec_() == QtWidgets.QDialog.Accepted:
+            self.__load(result.roiGroups)
+            self.show()
+    
+    def btnViewSecretClicked(self):
+        if self.view_secrets == True:
+            self.view_secrets = False
+            self.btnViewSecret.setIcon(icon_eye_slash(DIR_APP))
+            self.__update()
+        else:
+            self.view_secrets = True
+            self.btnViewSecret.setIcon(icon_eye(DIR_APP))
+            self.__update()
+
+    def __load(self, DATA):
+        global APP_DATA
+        APP_DATA = DATA
+        self.time_notify = 0
+        self.timer.start(1000)
+
+        self.twSaved.setRowCount(0)
+
+        try:
+            rows = sqlite_query(APP_DATA, 'SELECT * FROM auth ORDER BY myorder ASC')
+            self.twSaved.clearContents()
+            if not debug:
+                self.twSaved.setColumnHidden(0, True)
+                self.twSaved.setColumnHidden(1, True)
+                self.twSaved.setColumnHidden(2, True)
+            for row in rows:
+                inx = rows.index(row)
+                self.twSaved.insertRow(inx)
+
+                ICON_RPC = icon_none(DIR_APP)
+
+                self.twSaved.setItem(inx, 0, QtWidgets.QTableWidgetItem('{0}'.format(row['id'])))
+                self.twSaved.setItem(inx, 1, QtWidgets.QTableWidgetItem('{0}'.format(row['myorder'])))
+                #self.twSaved.setCellWidget(inx, 2, self.btnCopy())
+                self.twSaved.setItem(inx, 3, QtWidgets.QTableWidgetItem(''))
+                self.twSaved.setItem(inx, 4, QtWidgets.QTableWidgetItem('{0}'.format(row['issuer'])))
+                self.twSaved.setItem(inx, 5, QtWidgets.QTableWidgetItem('{0}'.format(row['account'])))
+
+                self.twSaved.selectRow(0)
+
+                hSaved = self.twSaved.horizontalHeader()
+                hSaved.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
+                hSaved.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
+                hSaved.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
+                hSaved.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeToContents)
+                hSaved.setSectionResizeMode(4, QtWidgets.QHeaderView.ResizeToContents)
+                hSaved.setSectionResizeMode(5, QtWidgets.QHeaderView.Stretch)
+
+                self.btnNew.setEnabled(True)
+                self.btnCopy.setEnabled(True)
+                self.btnQRCode.setEnabled(True)
+                self.btnDelete.setEnabled(True)
+                self.btnUp.setEnabled(True)
+                self.btnDown.setEnabled(True)
+
+            self.__update()
+        except:
+            pass
+
     def __new(self, RPC_DATA):
         try:
-            row, status = db_insertRPC(DIR_APP, RPC_DATA)
+            row, status = db_insertRPC(APP_DATA, RPC_DATA)
             inx = self.twSaved.rowCount()
         
             self.twSaved.insertRow(inx)
@@ -240,7 +309,7 @@ class frmMain(QtWidgets.QMainWindow):
             self.twSaved.setItem(inx, 0, QtWidgets.QTableWidgetItem('{0}'.format(row['id'])))
             self.twSaved.setItem(inx, 1, QtWidgets.QTableWidgetItem('{0}'.format(row['myorder'])))
             #self.twSaved.setCellWidget(inx, 2, self.btnCopy())
-            self.twSaved.setItem(inx, 3, QtWidgets.QTableWidgetItem(''))
+            #self.twSaved.setItem(inx, 3, QtWidgets.QTableWidgetItem(''))
             self.twSaved.setItem(inx, 4, QtWidgets.QTableWidgetItem('{0}'.format(RPC_DATA['issuer'])))
             self.twSaved.setItem(inx, 5, QtWidgets.QTableWidgetItem('{0}'.format(RPC_DATA['account'])))
 
@@ -260,21 +329,33 @@ class frmMain(QtWidgets.QMainWindow):
 
     def __add_account(self):
         try:      
-            result = frmNew(self, DIR_APP, '{0} ( {1} )'.format(APP_TITLE, APP_VERSION))
+            result = frmNewAccount(self, DIR_APP, '{0} ( {1} )'.format(APP_TITLE, APP_VERSION))
             if result.exec_() == QtWidgets.QDialog.Accepted:
                 self.__new(result.roiGroups)
         except:
             self.__msg_error('Error!')
 
     def __add_uri(self):
-        URI_txt, okPressed = QInputDialog.getText(self, '{0} ( {1} )'.format(APP_TITLE, APP_VERSION), 'Enter the URI / Text :', QLineEdit.Normal, '')
-        if okPressed and URI_txt != '':
-            try:
-                DATA_TOTP = pyotp.parse_uri(URI_txt)
+        try:
+            result = frmNewURI(self, DIR_APP, '{0} ( {1} )'.format(APP_TITLE, APP_VERSION))
+            if result.exec_() == QtWidgets.QDialog.Accepted:
+                DATA_TOTP = pyotp.parse_uri(result.roiGroups)
                 RPC_DATA = {'basekey': 'totp', 'account': DATA_TOTP.name, 'issuer': DATA_TOTP.issuer, 'secret': DATA_TOTP.secret, 'status': 1}
                 self.__new(RPC_DATA)
-            except:
-                self.__msg_error('Error!')
+        except:
+            self.__msg_error('Error!')
+
+    def btnQRCodeClicked(self):
+        index = self.twSaved.selectionModel().currentIndex()
+        value = index.sibling(index.row(),0).data()
+        row = db_selectoneRPC(APP_DATA, value)
+        try:
+            URI_TOTP = pyotp.totp.TOTP(row['secret']).provisioning_uri(name=row['account'], issuer_name=row['issuer'])
+            img = qrcode.make(URI_TOTP)
+            img.save('{0}/data/qrcode.png'.format(DIR_APP))
+            frmQRCode(self, DIR_APP, '{0} ( {1} )'.format(APP_TITLE, APP_VERSION))
+        except:
+            self.__msg_error('Error')
 
     def __add_qrcode(self):
         self.__msg_error('Add QR Code Not Configured!')
@@ -290,27 +371,30 @@ class frmMain(QtWidgets.QMainWindow):
         if self.time_notify == 0:
             self.lbStatus.setText('')
 
-    def __copy(self):
+    def btnCopyClicked(self):
         index = self.twSaved.selectionModel().currentIndex()
-        vkey = index.sibling(index.row(),3).data()
-        vissuer = index.sibling(index.row(),4).data()
-        pc.copy(vkey)
-        self.lbStatus.setText('copied <b>{0}</b>'.format(vissuer))
-        self.time_notify = 8
         value = index.sibling(index.row(),0).data()
-        row = db_selectoneRPC(DIR_APP, value)
+        row = db_selectoneRPC(APP_DATA, value)
+        #vkey = index.sibling(index.row(),3).data()
+        vissuer = index.sibling(index.row(),4).data()
         try:
-            URI_TOTP = pyotp.totp.TOTP(row['secret']).provisioning_uri(name=row['account'], issuer_name=row['issuer'])
-            img = qrcode.make(URI_TOTP)
-            img.save('{0}/data/qrcode.png'.format(DIR_APP))
+            TOTP_X = pyotp.TOTP(row['secret'])
+            URI_TOTP = TOTP_X.provisioning_uri(name=row['account'], issuer_name=row['issuer'])
+            __DATA = pyotp.parse_uri(URI_TOTP)
+            vkey = __DATA.now()
+            pc.copy(vkey)
+            MSG = 'copied <b>{0}</b>'.format(row['issuer'])
         except:
-            self.__msg_error('Error')
+            MSG = 'ERROR: Not copied <b>{0}</b>'.format(vissuer)
+        finally:        
+            self.lbStatus.setText(MSG)
+            self.time_notify = 8
     
     def __update(self):
         maxRow = maxCol = -1
         for inx in range(self.twSaved.rowCount()):
             value = self.twSaved.item(inx,0).text()
-            row = db_selectoneRPC(DIR_APP, value)
+            row = db_selectoneRPC(APP_DATA, value)
 
             try:
                 TOTP_X = pyotp.TOTP(row['secret'])
@@ -320,7 +404,10 @@ class frmMain(QtWidgets.QMainWindow):
             except:
                 __DATA_03 = 'ERROR'
 
-            self.twSaved.setItem(inx, 3, QtWidgets.QTableWidgetItem(__DATA_03))
+            if self.view_secrets == True:
+                self.twSaved.setItem(inx, 3, QtWidgets.QTableWidgetItem(__DATA_03))
+            else:
+                self.twSaved.setItem(inx, 3, QtWidgets.QTableWidgetItem('******'))
 
             hSaved = self.twSaved.horizontalHeader()
             hSaved.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
@@ -329,13 +416,6 @@ class frmMain(QtWidgets.QMainWindow):
             hSaved.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeToContents)
             hSaved.setSectionResizeMode(4, QtWidgets.QHeaderView.ResizeToContents)
             hSaved.setSectionResizeMode(5, QtWidgets.QHeaderView.Stretch)
-
-    #def btnCopy(self):
-    #    btn = QtWidgets.QPushButton('Copy', self)
-    #    btn.clicked.connect(self.__copy)
-    #    #btn.setIcon(icon_up(DIR_APP))
-    #    #btn.setToolTip("Up item selected")
-    #    return btn
 
     def btnCfgClicked(self):
         self.__msg_error('Global configuration form under construction!')
@@ -347,7 +427,7 @@ class frmMain(QtWidgets.QMainWindow):
 
         reply = QMessageBox.question(self, '{0} ( {1} )'.format(APP_TITLE, APP_VERSION), "Do you really want to delete it?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if reply == QMessageBox.Yes:
-            db_removeRPC(DIR_APP, __data)
+            db_removeRPC(APP_DATA, __data)
             self.twSaved.removeRow(self.twSaved.currentRow())
 
     def btnUpClicked(self):
@@ -366,7 +446,7 @@ class frmMain(QtWidgets.QMainWindow):
 
                 value = { 'table': 'auth', 'idold': id_old, 'myorderold': myorder_old, 'idnew': id_new, 'myordernew': myorder_new }
 
-                updown_data(DIR_APP, value)
+                updown_data(APP_DATA, value)
                 self.twSaved.setItem(inx_old, 1, QtWidgets.QTableWidgetItem('{0}'.format(myorder_new)))
                 self.twSaved.setItem(inx_new, 1, QtWidgets.QTableWidgetItem('{0}'.format(myorder_old)))
 
@@ -393,7 +473,7 @@ class frmMain(QtWidgets.QMainWindow):
 
                 value = { 'table': 'auth', 'idold': id_old, 'myorderold': myorder_old, 'idnew': id_new, 'myordernew': myorder_new }
 
-                updown_data(DIR_APP, value)
+                updown_data(APP_DATA, value)
                 self.twSaved.setItem(inx_old, 1, QtWidgets.QTableWidgetItem('{0}'.format(myorder_new)))
                 self.twSaved.setItem(inx_new, 1, QtWidgets.QTableWidgetItem('{0}'.format(myorder_old)))
 

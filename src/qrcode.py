@@ -5,10 +5,10 @@ from PyQt5.QtGui import (QPixmap, QIcon, QFont, QPalette, QColor)
 
 from src.icons import *
 
-class frmNew(QtWidgets.QDialog):
+class frmQRCode(QtWidgets.QDialog):
     def __init__(self, parent=None, dir_project=None, __data=None):
-        super(frmNew, self).__init__(parent)
-        uic.loadUi('{0}/ui/frmNew.ui'.format(dir_project), self)
+        super(frmQRCode, self).__init__(parent)
+        uic.loadUi('{0}/ui/frmQRCode.ui'.format(dir_project), self)
 
         global CURRENT_DIR_APP
         global CURRENT_DATA
@@ -16,21 +16,15 @@ class frmNew(QtWidgets.QDialog):
         CURRENT_DIR_APP = dir_project
         CURRENT_DATA = __data
 
-        self.edtIssuer = self.findChild(QtWidgets.QLineEdit, 'edtIssuer')
-        self.edtAccount = self.findChild(QtWidgets.QLineEdit, 'edtAccount')
-        self.edtSecret = self.findChild(QtWidgets.QLineEdit, 'edtSecret')
-        self.cbTypeKey = self.findChild(QtWidgets.QComboBox, 'cbTypeKey')
-        self.cbTypeKey.setEnabled(False)
-
-        self.btnCancel = self.findChild(QtWidgets.QPushButton, 'btnCancel')
-        self.btnCancel.clicked.connect(self.btnCancelClicked) 
-        self.btnCancel.setIcon(icon_close(CURRENT_DIR_APP))
+        self.lbViewImage = self.findChild(QtWidgets.QLabel, 'lbViewImage')
+        pixmap = QtGui.QPixmap('{0}/data/qrcode.png'.format(CURRENT_DIR_APP))
+        self.lbViewImage.setPixmap(pixmap)
 
         self.btnOK = self.findChild(QtWidgets.QPushButton, 'btnOK')
         self.btnOK.clicked.connect(self.btnOKClicked) 
         self.btnOK.setIcon(icon_save(CURRENT_DIR_APP))
 
-        self.roiGroups = {'basekey': '', 'issuer': '', 'account': '', 'secret': '', 'status': 1}
+        self.roiGroups = ''
 
         self.setWindowTitle(CURRENT_DATA)
        
@@ -46,7 +40,7 @@ class frmNew(QtWidgets.QDialog):
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
-            self.roiGroups = {'basekey': '', 'account': '', 'issuer': '', 'secret': '', 'status': 1}
+            self.roiGroups = ''
             self.close()
 
     def center(self):
@@ -56,9 +50,5 @@ class frmNew(QtWidgets.QDialog):
        self.move(qr.topLeft())
 
     def btnOKClicked(self):
-       self.roiGroups = {'basekey': self.cbTypeKey.currentText(), 'issuer': self.edtIssuer.text(), 'account': self.edtAccount.text(), 'secret': self.edtSecret.text(), 'status': 1}
+       self.roiGroups = ''
        self.accept()
-
-    def btnCancelClicked(self):
-        self.roiGroups = {'basekey': '', 'account': '', 'issuer': '', 'secret': '', 'status': 1}
-        self.close()

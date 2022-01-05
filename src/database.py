@@ -1,23 +1,30 @@
 # https://charlesleifer.com/blog/encrypted-sqlite-databases-with-python-and-sqlcipher/
 # https://www.zetetic.net/sqlcipher/sqlcipher-api/
 #
+# try:
+#     from sqlcipher3 import dbapi2 as sqlite3
+# except:
+#     import sqlite3
 
-try:
-    from pysqlcipher3 import dbapi2 as sqlite3
-except:
-    import sqlite3
+from sqlcipher3 import dbapi2 as sqlite3
 
-def initial_sqlite(_DIR):
-    DB = '{0}/data/database.sqlite3'.format(_DIR)
-    conn = sqlite3.connect(DB)
-    #conn = sqlcipher.connect(DB)
-    #
-    #conn.execute("ATTACH DATABASE 'data/teste.sqlite3' AS encrypted KEY 'M!nh4.S3nH@';")  # setando senha = linha 1
-    #conn.execute("SELECT sqlcipher_export('encrypted');")                                 # setando senha = linha 2
-    #conn.execute("DETACH DATABASE encrypted;")                                            # setando senha = linha 3
-    #
-    #conn.execute('pragma key="M!nh4.S3nH@"')                                              # Acesso aos SELECT, INSERT, UPDATE e DELETE
+def teste_connection(__APP_DATA):
+    try:
+        conn = sqlite3.connect(__APP_DATA['file'])
+        conn.row_factory = sqlite3.Row
+        conn.execute('pragma key="{0}"'.format(__APP_DATA['secret']))
+        result = conn.execute('SELECT * FROM auth;').fetchall()
+        return result
+    except:
+        return None
+
+def initial_sqlite(__APP_DATA):
+    conn = sqlite3.connect(__APP_DATA['file'])
     conn.row_factory = sqlite3.Row
+    conn.execute("ATTACH DATABASE '{0}' AS encrypted KEY '{1}';".format(__APP_DATA['file'], __APP_DATA['secret']))  # setando senha = linha 1
+    conn.execute("SELECT sqlcipher_export('encrypted');")                                                      # setando senha = linha 2
+    conn.execute("DETACH DATABASE encrypted;")                                                                 # setando senha = linha 3
+    conn.execute('pragma key="{0}"'.format(__APP_DATA['secret']))                                              # Acesso aos SELECT, INSERT, UPDATE e DELETE
     cur = conn.cursor()
     cur.execute("""
 CREATE TABLE IF NOT EXISTS auth (
@@ -30,49 +37,33 @@ CREATE TABLE IF NOT EXISTS auth (
     status  INTEGER DEFAULT (1) 
 );
     """)
-    conn.commit()
-    cur.execute("""
-CREATE TABLE IF NOT EXISTS config (
-    id     INTEGER PRIMARY KEY AUTOINCREMENT,
-    [view] INTEGER DEFAULT (1) 
-);
-    """)
     conn.commit()    
     conn.close()
 
-def sqlite_query(_DIR, SQL_QUERY):
-    DB = '{0}/data/database.sqlite3'.format(_DIR)
-    conn = sqlite3.connect(DB)
-    #conn = sqlcipher.connect(DB)
-    #
-    #conn.execute('pragma key="M!nh4.S3nH@"')
+def sqlite_query(__APP_DATA, SQL_QUERY):
+    conn = sqlite3.connect(__APP_DATA['file'])
     conn.row_factory = sqlite3.Row
+    conn.execute('pragma key="{0}"'.format(__APP_DATA['secret']))
     cur = conn.cursor()
     cur.execute(SQL_QUERY)
     data = cur.fetchall()
     conn.close()
     return data
 
-def db_selectoneRPC(_DIR, _ID):
-    DB = '{0}/data/database.sqlite3'.format(_DIR)
-    conn = sqlite3.connect(DB)
-    #conn = sqlcipher.connect(DB)
-    #
-    #conn.execute('pragma key="M!nh4.S3nH@"')
-    conn.row_factory = sqlite3.Row
+def db_selectoneRPC(__APP_DATA, _ID):
+    conn = sqlite3.connect(__APP_DATA['file'])
+    conn.row_factory = sqlite3.Row    
+    conn.execute('pragma key="{0}"'.format(__APP_DATA['secret']))
     cur = conn.cursor()
     cur.execute("SELECT * FROM auth WHERE id = {0}".format(_ID))
     data = cur.fetchone()
     conn.close()
     return dict(data)
 
-def db_insertRPC(_DIR, RPC_DATA):
-    DB = '{0}/data/database.sqlite3'.format(_DIR)
-    conn = sqlite3.connect(DB)
-    #conn = sqlcipher.connect(DB)
-    #
-    #conn.execute('pragma key="M!nh4.S3nH@"')
+def db_insertRPC(__APP_DATA, RPC_DATA):
+    conn = sqlite3.connect(__APP_DATA['file'])
     conn.row_factory = sqlite3.Row
+    conn.execute('pragma key="{0}"'.format(__APP_DATA['secret']))
     cur = conn.cursor()
     cur.execute("INSERT INTO auth (issuer, account, secret, basekey, status) VALUES (:issuer, :account, :secret, :basekey, :status)", RPC_DATA)
     if cur.rowcount < 1:
@@ -99,13 +90,10 @@ def db_insertRPC(_DIR, RPC_DATA):
 
     return data, status
 
-def db_removeRPC(_DIR, RPC_DATA):
-    DB = '{0}/data/database.sqlite3'.format(_DIR)
-    conn = sqlite3.connect(DB)
-    #conn = sqlcipher.connect(DB)
-    #
-    #conn.execute('pragma key="M!nh4.S3nH@"')
-    conn.row_factory = sqlite3.Row
+def db_removeRPC(__APP_DATA, RPC_DATA):
+    conn = sqlite3.connect(__APP_DATA['file'])
+    conn.row_factory = sqlite3.Row    
+    conn.execute('pragma key="{0}"'.format(__APP_DATA['secret']))
     cur = conn.cursor()
     cur.execute(f"DELETE FROM auth WHERE id = :id", RPC_DATA)
     if cur.rowcount < 1:
@@ -116,13 +104,10 @@ def db_removeRPC(_DIR, RPC_DATA):
     conn.close()
     return status
 
-def updown_data(_DIR, data_dict):
-    DB = '{0}/data/database.sqlite3'.format(_DIR)
-    conn = sqlite3.connect(DB)
-    #conn = sqlcipher.connect(DB)
-    #
-    #conn.execute('pragma key="M!nh4.S3nH@"')
-    conn.row_factory = sqlite3.Row
+def updown_data(__APP_DATA, data_dict):
+    conn = sqlite3.connect(__APP_DATA['file'])
+    conn.row_factory = sqlite3.Row    
+    conn.execute('pragma key="{0}"'.format(__APP_DATA['secret']))
     cur = conn.cursor()
     cur.execute("UPDATE {0} SET myorder = :myordernew WHERE id = :idold".format(data_dict['table']), data_dict)
     if cur.rowcount < 1:

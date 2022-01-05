@@ -5,11 +5,20 @@ from PyQt5.QtGui import (QPixmap, QIcon, QColor, QPainter, QPen, QBrush)
 def icon_app(DIR_APP):
     return QtGui.QIcon('{0}/icons/secauth.png'.format(DIR_APP))
 
+def icon_open(DIR_APP):
+    return QtGui.QIcon('{0}/icons/open.svg'.format(DIR_APP))
+
 def icon_save(DIR_APP):
     return QtGui.QIcon('{0}/icons/save.svg'.format(DIR_APP))
 
 def icon_trash(DIR_APP):
     return QtGui.QIcon('{0}/icons/trash.svg'.format(DIR_APP))
+
+def icon_copy(DIR_APP):
+    return QtGui.QIcon('{0}/icons/key.svg'.format(DIR_APP))
+
+def icon_qrcode(DIR_APP):
+    return QtGui.QIcon('{0}/icons/qrcode.png'.format(DIR_APP))
 
 def icon_info(DIR_APP):
     return QtGui.QIcon('{0}/icons/info.svg'.format(DIR_APP))
@@ -55,3 +64,9 @@ def icon_offline(DIR_APP):
 
 def icon_link(DIR_APP):
     return QtGui.QIcon('{0}/icons/globe-americas.svg'.format(DIR_APP))
+
+def icon_eye(DIR_APP):
+    return QtGui.QIcon('{0}/icons/eye.svg'.format(DIR_APP))
+    
+def icon_eye_slash(DIR_APP):
+    return QtGui.QIcon('{0}/icons/eye-slash.svg'.format(DIR_APP))
