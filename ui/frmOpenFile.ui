@@ -59,7 +59,7 @@
       <item>
        <widget class="QLineEdit" name="edtFile">
         <property name="text">
-         <string>/home/roanfranklin/Documentos/GitHub/remf_auth/data/radb.sqlite3</string>
+         <string/>
         </property>
        </widget>
       </item>

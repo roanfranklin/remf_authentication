@@ -63,8 +63,9 @@ class frmNewAccount(QtWidgets.QDialog):
        self.move(qr.topLeft())
 
     def btnOKClicked(self):
-       self.roiGroups = {'basekey': self.cbTypeKey.currentText(), 'issuer': self.edtIssuer.text(), 'account': self.edtAccount.text(), 'secret': self.edtSecret.text(), 'status': 1}
-       self.accept()
+        SECRET = str(self.edtSecret.text()).replace(" ","")
+        self.roiGroups = {'basekey': self.cbTypeKey.currentText(), 'issuer': self.edtIssuer.text(), 'account': self.edtAccount.text(), 'secret': SECRET, 'status': 1}
+        self.accept()
 
     def btnCancelClicked(self):
         self.roiGroups = {'basekey': '', 'account': '', 'issuer': '', 'secret': '', 'status': 1}

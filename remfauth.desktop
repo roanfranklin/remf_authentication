@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Name=REMF Auth
+Comment=REMF Authenticator
+Exec=remf_auth.sh
+Icon=secauth
+Terminal=false
+Type=Application
+StartupNotify=true

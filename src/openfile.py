@@ -1,6 +1,6 @@
 from PyQt5 import (QtWidgets, QtGui, QtCore, uic)
 from PyQt5.QtWidgets import (QApplication, QWidget, QToolTip, QPushButton, QMessageBox, QDesktopWidget, QInputDialog, QTableWidgetItem, QAbstractItemView)
-from PyQt5.QtCore import (Qt, QUrl, QSize, QDir, QDate)
+from PyQt5.QtCore import (Qt, QUrl, QSize, QDir, QDate, QSettings)
 from PyQt5.QtGui import (QPixmap, QIcon, QFont, QPalette, QColor)
 
 from src.icons import *
@@ -13,6 +13,10 @@ class frmOpenFile(QtWidgets.QDialog):
         super(frmOpenFile, self).__init__(parent)
         uic.loadUi('{0}/ui/frmOpenFile.ui'.format(dir_project), self)
 
+        self.settings = QSettings("remf", "remfauth")
+
+        print(QSettings.fileName(self.settings))
+
         global CURRENT_DIR_APP
         global CURRENT_DATA
 
@@ -20,6 +24,7 @@ class frmOpenFile(QtWidgets.QDialog):
         CURRENT_DATA = __data
 
         self.edtFile = self.findChild(QtWidgets.QLineEdit, 'edtFile')
+        self.edtFile.setText(self.settings.value("lastfile"))
         self.edtSecret = self.findChild(QtWidgets.QLineEdit, 'edtSecret')
         self.edtSecret.setEchoMode(QtWidgets.QLineEdit.Password)        
 
@@ -73,6 +78,7 @@ class frmOpenFile(QtWidgets.QDialog):
 
     def btnOKClicked(self):
         if self.btnTestConnectionFileClicked():
+            self.settings.setValue("lastfile", self.edtFile.text())
             self.roiGroups = {'file': self.edtFile.text(), 'secret': self.edtSecret.text()}
             self.accept()
         else:

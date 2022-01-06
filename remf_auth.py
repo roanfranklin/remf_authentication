@@ -177,6 +177,7 @@ class frmMain(QtWidgets.QMainWindow):
         self.btnClose.setToolTip("Hide/Exit")
 
         self.btnNew.setEnabled(False)
+        self.btnViewSecret.setEnabled(False)
         self.btnCopy.setEnabled(False)
         self.btnQRCode.setEnabled(False)
         self.btnDelete.setEnabled(False)
@@ -289,6 +290,7 @@ class frmMain(QtWidgets.QMainWindow):
                 hSaved.setSectionResizeMode(5, QtWidgets.QHeaderView.Stretch)
 
                 self.btnNew.setEnabled(True)
+                self.btnViewSecret.setEnabled(True)
                 self.btnCopy.setEnabled(True)
                 self.btnQRCode.setEnabled(True)
                 self.btnDelete.setEnabled(True)
